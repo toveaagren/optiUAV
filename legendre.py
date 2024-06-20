@@ -5,11 +5,11 @@ from utils import unique_with_tolerance, find_zeros
 
 
 def get_collocation(ps_N: int, n_t_ps_grid=200) -> DotMap:
-    L_N = legendre_polynomial(ps_N=ps_N)
-    L_N_dot = legendre_polynomial_dot(ps_N=ps_N)
+    L_N = legendre_polynomial(n=ps_N)
+    L_N_dot = legendre_polynomial_dot(n=ps_N)
 
     t_guess_array = np.linspace(
-        start=-1, stop=1, num=5 * ps_N, endpoint=False
+        start=-1, stop=1, num=100 * ps_N, endpoint=False
     )  # Increased mumber of points to make sure all zeros are found
     tm_calc = np.zeros(len(t_guess_array))
 
@@ -57,7 +57,7 @@ def get_collocation(ps_N: int, n_t_ps_grid=200) -> DotMap:
             if m == l:
                 ps_D[m, l] = 0
             else:
-                ps_D[m, l] = (L_N(tm[m]) / L_N(tm[l])) * (1 / (tm[m] - tm[l]))
+                ps_D[m, l] = L_N(tm[m]) / L_N(tm[l]) * (1 / (tm[m] - tm[l]))
 
     ps_D[0, 0] = -ps_N * (ps_N + 1) / 4
     ps_D[ps_N, ps_N] = ps_N * (ps_N + 1) / 4
@@ -78,64 +78,79 @@ def get_collocation(ps_N: int, n_t_ps_grid=200) -> DotMap:
         phi_l[:, ell] = phi(t_ps_grid)
         phi_l[tm_idx_grid, ell] = 0  # Zero at all collocation points
         phi_l[tm_idx_grid[ell], ell] = 1  # Except for k = l
-
+    LGL_colloc.phi_l = phi_l
     return LGL_colloc
 
 
-def legendre_polynomial(ps_N: int) -> callable:
-    ps_K = math.floor(ps_N / 2)
-    L_N = lambda t: sum(
-        ((-1) ** k1 * math.factorial(2 * ps_N - 2 * k1))
-        / (
-            2**ps_N
-            * math.factorial(k1)
-            * math.factorial(ps_N - k1)
-            * math.factorial(ps_N - 2 * k1)
-        )
-        * t ** (ps_N - 2 * k1)
-        for k1 in range(ps_K + 1)
-    )
-    return L_N
+from scipy.special import legendre
 
 
-def legendre_polynomial_dot(ps_N):
-    ps_K = math.floor(ps_N / 2)
-    if ps_N % 2 == 0:
-        return lambda t: sum(
-            (
-                ((-1) ** k * math.factorial(2 * ps_N - 2 * k) * (ps_N - 2 * k))
-                / (
-                    2**ps_N
-                    * math.factorial(k)
-                    * math.factorial(ps_N - k)
-                    * math.factorial(ps_N - 2 * k)
-                )
-                * t ** (ps_N - 2 * k - 1)
-                if t != 0.0
-                else 0.0
-            )
-            for k in range(ps_K + 1)
-        )
-    else:
-        return (
-            lambda t: sum(
-                ((-1) ** k * math.factorial(2 * ps_N - 2 * k) * (ps_N - 2 * k))
-                / (
-                    2**ps_N
-                    * math.factorial(k)
-                    * math.factorial(ps_N - k)
-                    * math.factorial(ps_N - 2 * k)
-                )
-                * t ** (ps_N - 2 * k - 1)
-                for k in range(ps_K + 1)
-            )
-            + (
-                (-1) ** ps_K
-                * math.factorial(ps_N)
-                / (2**ps_N * math.factorial(ps_K) * math.factorial(ps_N - ps_K))
-            )
-            * t**ps_K
-        )
+def legendre_polynomial(n: int) -> callable:
+    """Returns the Legendre polynomial of degree n."""
+    return legendre(n)
+
+
+def legendre_polynomial_dot(n: int) -> callable:
+    """Returns the derivative of the Legendre polynomial of degree n."""
+    Pn = legendre(n)
+    Pn_dot = np.polyder(Pn)
+    return np.poly1d(Pn_dot)
+
+
+# def legendre_polynomial(ps_N: int) -> callable:
+#     ps_K = math.floor(ps_N / 2)
+#     L_N = lambda t: sum(
+#         ((-1) ** k1 * math.factorial(2 * ps_N - 2 * k1))
+#         / (
+#             2**ps_N
+#             * math.factorial(k1)
+#             * math.factorial(ps_N - k1)
+#             * math.factorial(ps_N - 2 * k1)
+#         )
+#         * t ** (ps_N - 2 * k1)
+#         for k1 in range(ps_K + 1)
+#     )
+#     return L_N
+
+
+# def legendre_polynomial_dot(ps_N):
+#     ps_K = math.floor(ps_N / 2)
+#     if ps_N % 2 == 0:
+#         return lambda t: sum(
+#             (
+#                 ((-1) ** k * math.factorial(2 * ps_N - 2 * k) * (ps_N - 2 * k))
+#                 / (
+#                     2**ps_N
+#                     * math.factorial(k)
+#                     * math.factorial(ps_N - k)
+#                     * math.factorial(ps_N - 2 * k)
+#                 )
+#                 * t ** (ps_N - 2 * k - 1)
+#                 if t != 0.0
+#                 else 0.0
+#             )
+#             for k in range(ps_K + 1)
+#         )
+#     else:
+#         return (
+#             lambda t: sum(
+#                 ((-1) ** k * math.factorial(2 * ps_N - 2 * k) * (ps_N - 2 * k))
+#                 / (
+#                     2**ps_N
+#                     * math.factorial(k)
+#                     * math.factorial(ps_N - k)
+#                     * math.factorial(ps_N - 2 * k)
+#                 )
+#                 * t ** (ps_N - 2 * k - 1)
+#                 for k in range(ps_K + 1)
+#             )
+#             + (
+#                 (-1) ** ps_K
+#                 * math.factorial(ps_N)
+#                 / (2**ps_N * math.factorial(ps_K) * math.factorial(ps_N - ps_K))
+#             )
+#             * t**ps_K
+#         )
 
 
 # TODO: SHould handle zero case better
@@ -146,3 +161,23 @@ def lagrange_polynomial(ps_N: int, k: int, tk: np.ndarray) -> callable:
         ((t**2 - 1) * LN_dot(t)) / (t - tk[k])
     )
     return phi_k
+
+
+# def lagrange_polynomial(ps_N: int, k: int, tk: np.ndarray) -> callable:
+#     """
+#     Returns the k-th Lagrange polynomial for a given order ps_N and nodes tk.
+#     """
+#     LN = legendre_polynomial(ps_N)
+#     LN_dot = legendre_polynomial_dot(ps_N)
+
+#     def phi_k(t):
+#         if np.isclose(t, tk[k]):
+#             return (
+#                 (1 / (ps_N * (ps_N + 1) * LN(tk[k]))) * (tk[k] ** 2 - 1) * LN_dot(tk[k])
+#             )
+#         else:
+#             return (1 / (ps_N * (ps_N + 1) * LN(tk[k]))) * (
+#                 ((t**2 - 1) * LN_dot(t)) / (t - tk[k])
+#             )
+
+#     return phi_k
